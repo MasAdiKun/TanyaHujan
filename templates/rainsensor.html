@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="shortcut icon" href="../static/img/awan.png" type="image/x-icon">
+    <title>Tanya Hujan | Data Sensor</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap"
+        rel="stylesheet">
+    <script type="module">
+        
+    </script>
+    <style>
+        .sensor-container{
+            background: #fca311;
+        }
+        .left-content .top-content, .left-content .bottom-content{
+            height: 50%;
+        }
+        .btn-fetch{
+            bottom: 1rem;
+        }
+    </style>
+    <link rel="stylesheet" href="../static/css/main.css">
+</head>
+
+<body>
+    <nav class="navbar navbar-dark navbar-expand-lg custom-navbar">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="rainindex.html">
+                <img src="../static/img/tanyahujanhori.png" alt="Your Logo" height="50">
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+                aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('index') }}">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="manual">Prediksi Hujan</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#">Realtime</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="aboutus">About Us</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+    <!-- Main Body -->
+    <article class="main-content d-flex justify-content-center py-5">
+        <div class="col-10 col-md-6 sensor-container my-5 d-flex flex-column flex-md-row px-5 py-3 rounded-2 justify-content-center position-relative">
+            <div class="left-content d-flex flex-column col-12 col-md-6 py-2 py-md-5">
+                <div class="top-content">
+                    <h1>Suhu</h1>
+                    <p id="suhusensor" class="fs-2">- <span>&#176;C</span></p>
+                </div>
+                <div class="bottom-content mt-2">
+                    <h1>Kelembapan</h1>
+                    <p id="kelembapan" class="fs-2">- <span>%</span></p>
+                </div>
+            </div>
+            <div class="right-content col-6 d-flex align-items-center justify-content-center">
+                <div class="pred-container">
+                    <h1>Prediksi</h1>
+                    <p id="prediksi" class="fs-1">-</p>
+                </div>
+            </div>
+            <div class="position-absolute btn-fetch">
+                <div class="text-center">
+                    <button type="button" id="btn-get-send" class="btn btn-primary fs-4">Start Fetch</button>
+                </div>
+            </div>
+        </div>
+    </article>
+    <!-- Java Script -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
+        crossorigin="anonymous"></script>
+    <script type="module">
+        // Import the functions you need from the SDKs you need
+            import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+            import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+            // Your web app's Firebase configuration
+            const firebaseConfig = {
+                apiKey: "AIzaSyBevNqRSI99tRg5phwyi4nIowDdsPDhu5I",
+                authDomain: "rain-predict.firebaseapp.com",
+                databaseURL: "https://rain-predict-default-rtdb.asia-southeast1.firebasedatabase.app",
+                projectId: "rain-predict",
+                storageBucket: "rain-predict.appspot.com",
+                messagingSenderId: "721061678647",
+                appId: "1:721061678647:web:90dc6d5725988fd00eb9b2",
+                measurementId: "G-TFD9TBEQX4"
+            };
+
+            // Initialize Firebase
+            const app = initializeApp(firebaseConfig);
+            const db = getDatabase(app);
+
+        const suhuElement = document.getElementById('suhusensor');
+            const kelembapanElement = document.getElementById('kelembapan');
+            const prediksiElement = document.getElementById('prediksi');
+            const btnGetSend = document.getElementById('btn-get-send');
+            let previousData = {}; // Variable to store previous fetched data
+            let fetchInterval = null; // Variable to store interval ID
+
+            // Function to fetch data from Firebase and send to Flask API
+            function fetchDataAndSendToAPI() {
+                const rainRef = ref(db, "/sensor");
+                onValue(rainRef, (snap) => {
+                    const data = snap.val();
+                    // Check if data exists
+                    if (!data || !data.suhu || !data.kelembapan) {
+                        suhuElement.textContent = 'No Data';
+                        kelembapanElement.textContent = 'No Data';
+                        prediksiElement.textContent = '-';
+                        console.log('No data available.');
+                        return; // Exit function if no data available
+                    }
+                    const suhu = data.suhu;
+                    const kelembapan = data.kelembapan;
+                    console.log(suhu, kelembapan);
+                    // Update HTML elements with fetched data
+                    suhuElement.textContent = suhu + ' °C';
+                    kelembapanElement.textContent = kelembapan + ' %';
+                    // Check if data has changed
+                    if (JSON.stringify(data) !== JSON.stringify(previousData)) {
+                        previousData = data; // Update previousData with current data
+                        // Send data to Flask API
+                        fetch('/api/rainpredict', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({ suhu: parseFloat(suhu), kelembapan: parseFloat(kelembapan) })
+                        })
+                            .then(response => response.json())
+                            .then(data => {
+                                console.log('Prediction:', data.prediction);
+                                prediksiElement.textContent = data.prediction;
+                            })
+                            .catch(error => {
+                                console.error('Error:', error);
+                                prediksiElement.textContent = 'Error';
+                            });
+                    } else {
+                        console.log('Data unchanged, skipping API request.');
+                    }
+                });
+            }
+
+            // Function to start fetching data periodically
+            function startFetching() {
+                fetchDataAndSendToAPI(); // Immediately fetch data on start
+
+                // Setup interval to fetch data every 10 seconds
+                return setInterval(fetchDataAndSendToAPI, 10000);
+            }
+
+            // Event listener for the button click
+            btnGetSend.addEventListener('click', function () {
+                if (btnGetSend.textContent === 'Start Fetch') {
+                    btnGetSend.textContent = 'Stop Fetch';
+                    fetchInterval = startFetching(); // Start fetching data
+                } else {
+                    btnGetSend.textContent = 'Start Fetch';
+                    clearInterval(fetchInterval); // Stop fetching data
+                }
+            });
+
+            // Function to check Firebase connection
+            function checkFirebaseConnection() {
+                const connectedRef = ref(db, ".info/connected");
+                onValue(connectedRef, (snap) => {
+                    if (snap.val() === true) {
+                        console.log("Connected to Firebase Realtime Database.");
+                        btnGetSend.disabled = false; // Enable the button if connected
+                    } else {
+                        console.log("Disconnected from Firebase Realtime Database.");
+                        suhuElement.textContent = 'No Data';
+                        kelembapanElement.textContent = 'No Data';
+                        prediksiElement.textContent = '-';
+                        btnGetSend.disabled = true; // Disable the button if not connected
+                    }
+                });
+            }
+
+            // Initial setup: Call checkFirebaseConnection() when the page loads
+            checkFirebaseConnection();
+    </script>
+</body>
+
+</html>
